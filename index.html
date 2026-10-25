@@ -28,15 +28,16 @@
 </head>
 <body class="min-h-screen flex flex-col justify-between">
 
-  <!-- APP CONTAINER -->
+  <!-- APP ROOT CONTAINER -->
   <div id="app"></div>
 
-  <!-- ZERO-DEPENDENCY NATIVE JAVASCRIPT (Runs 100% reliably in Brave & all browsers) -->
   <script>
     const siteConfig = {
       name: "VISUAL",
       tagline: "SEE THE MOMENT. FEEL THE STORY.",
       headline: "YOUR VISION. THE RIGHT PHOTOGRAPHER.",
+      currency: "৳", // BDT Taka Symbol
+      currencyCode: "BDT",
       owner: "Er. Md Mutasaddik Arham",
       attribution: "Founded and operated by Er. Md Mutasaddik Arham.",
       categories: [
@@ -49,46 +50,52 @@
       {
         id: 'p1',
         name: 'Elena Vance Visuals',
-        city: 'New York, NY',
+        city: 'Dhaka, Bangladesh',
         specialties: ['Fashion', 'Portrait', 'Wedding'],
-        price: 650,
+        price: 8500,
         rating: 4.96,
-        phone: '+1 212-555-0192',
+        phone: '+8801700000000',
         cover: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=800&q=80',
         bio: 'Award-winning visual storyteller capturing haute couture, editorial campaigns, and intimate portraits.'
       },
       {
         id: 'p2',
         name: 'Sterling Cinematic Weddings',
-        city: 'San Francisco, CA',
+        city: 'Chittagong, Bangladesh',
         specialties: ['Wedding', 'Events'],
-        price: 1200,
+        price: 18000,
         rating: 5.0,
-        phone: '+1 415-555-0148',
+        phone: '+8801800000000',
         cover: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
         bio: 'Documentary-style wedding specialist with 12+ years experience documenting luxury celebrations worldwide.'
       },
       {
         id: 'p3',
         name: 'Studio Arham Architecture',
-        city: 'Chicago, IL',
+        city: 'Sylhet, Bangladesh',
         specialties: ['Corporate', 'Real Estate', 'Product'],
-        price: 500,
+        price: 6000,
         rating: 4.92,
-        phone: '+1 312-555-0199',
+        phone: '+8801900000000',
         cover: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
         bio: 'High precision commercial spaces, real estate aerials, and executive corporate photography.'
       }
     ];
 
-    // State Store with LocalStorage
+    // LocalStorage State Management
     let state = {
       view: 'home',
       category: 'All',
       searchQuery: '',
       adminTab: 'add',
       modalOpen: false,
+      loginModalOpen: false,
+      loginError: false,
+      isAdminLoggedIn: sessionStorage.getItem('visual_admin_logged') === 'true',
+      adminPassword: localStorage.getItem('visual_admin_pass') || 'arham2026',
+      adminWhatsApp: localStorage.getItem('visual_admin_wa') || '+8801700000000',
       selectedPhotographer: null,
+      lastSubmittedInquiry: null,
       photographers: JSON.parse(localStorage.getItem('visual_photographers')) || DEFAULT_PHOTOGRAPHERS,
       inquiries: JSON.parse(localStorage.getItem('visual_inquiries')) || [
         { id: 'VIS-HR-10928', client: 'Sarah Khan', photographer: 'Elena Vance Visuals', event: 'Wedding Reception', date: '2026-11-20', status: 'Pending' }
@@ -98,12 +105,55 @@
     function saveState() {
       localStorage.setItem('visual_photographers', JSON.stringify(state.photographers));
       localStorage.setItem('visual_inquiries', JSON.stringify(state.inquiries));
+      localStorage.setItem('visual_admin_pass', state.adminPassword);
+      localStorage.setItem('visual_admin_wa', state.adminWhatsApp);
     }
 
     function setView(v) {
+      if (v === 'admin' && !state.isAdminLoggedIn) {
+        state.loginModalOpen = true;
+        state.loginError = false;
+        render();
+        return;
+      }
       state.view = v;
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const entered = e.target.pass.value;
+      if (entered === state.adminPassword) {
+        state.isAdminLoggedIn = true;
+        sessionStorage.setItem('visual_admin_logged', 'true');
+        state.loginModalOpen = false;
+        state.loginError = false;
+        state.view = 'admin';
+        render();
+      } else {
+        state.loginError = true;
+        render();
+      }
+    }
+
+    function handleAdminLogout() {
+      state.isAdminLoggedIn = false;
+      sessionStorage.removeItem('visual_admin_logged');
+      state.view = 'home';
+      alert('অ্যাডমিন প্যানেল সফলভাবে লক ও লগআউট করা হয়েছে।');
+      render();
+    }
+
+    function handleUpdateSettings(e) {
+      e.preventDefault();
+      const newPass = e.target.new_pass.value;
+      const newWa = e.target.new_wa.value;
+      if (newPass) state.adminPassword = newPass;
+      if (newWa) state.adminWhatsApp = newWa;
+      saveState();
+      alert('অ্যাডমিন সেটিংস ও পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!');
+      render();
     }
 
     function setCategory(cat) {
@@ -124,11 +174,13 @@
     function openHireModal(id) {
       state.selectedPhotographer = state.photographers.find(p => p.id === id);
       state.modalOpen = true;
+      state.lastSubmittedInquiry = null;
       render();
     }
 
     function closeHireModal() {
       state.modalOpen = false;
+      state.lastSubmittedInquiry = null;
       render();
     }
 
@@ -142,14 +194,14 @@
         specialties: f.p_specialties.value.split(',').map(s => s.trim()),
         price: Number(f.p_price.value),
         rating: 5.0,
-        phone: f.p_phone.value || '+1 000-000-0000',
+        phone: f.p_phone.value || state.adminWhatsApp,
         cover: f.p_cover.value || 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=800&q=80',
         bio: f.p_bio.value
       };
 
       state.photographers.unshift(newPhoto);
       saveState();
-      alert(`ফটোগ্রাফার "${newPhoto.name}" সফলভাবে যুক্ত হয়েছে! Explore পেজে গিয়ে দেখুন।`);
+      alert(`ফটোগ্রাফার "${newPhoto.name}" সফলভাবে যুক্ত হয়েছে!`);
       state.adminTab = 'list';
       render();
     }
@@ -166,24 +218,42 @@
       e.preventDefault();
       const f = e.target;
       const ref = 'VIS-HR-' + Math.floor(100000 + Math.random() * 900000);
+      const photoName = state.selectedPhotographer ? state.selectedPhotographer.name : 'Assigned Talent';
+      
       const newInq = {
         id: ref,
         client: f.c_name.value,
-        photographer: state.selectedPhotographer ? state.selectedPhotographer.name : 'Talent',
+        phone: f.c_phone.value,
+        photographer: photoName,
         event: f.c_event.value,
         date: f.c_date.value,
         status: 'Pending'
       };
+
       state.inquiries.unshift(newInq);
       saveState();
-      alert(`Success! আপনার হায়ার রিকোয়েস্ট পাঠানো হয়েছে। ট্র্যাকিং রেফারেন্স: ${ref}`);
-      state.modalOpen = false;
+
+      // Formatted WhatsApp Message with BDT
+      const msg = `*New Hiring Request - VISUAL Marketplace*\n\n` +
+        `*Tracking Code:* ${ref}\n` +
+        `*Client Name:* ${newInq.client}\n` +
+        `*Contact:* ${newInq.phone}\n` +
+        `*Selected Photographer:* ${photoName}\n` +
+        `*Event Occasion:* ${newInq.event}\n` +
+        `*Event Date:* ${newInq.date}\n` +
+        `*Currency:* BDT (৳)\n\n` +
+        `_Platform: VISUAL (Owner: ${siteConfig.owner})_`;
+
+      const cleanWa = state.adminWhatsApp.replace(/\D/g, '');
+      const waUrl = `https://wa.me/${cleanWa}?text=${encodeURIComponent(msg)}`;
+
+      state.lastSubmittedInquiry = { ...newInq, waUrl };
       render();
     }
 
     function downloadCSV() {
-      const csvData = "Reference,Client,Photographer,Event,Date,Status\n" + 
-        state.inquiries.map(i => `${i.id},${i.client},${i.photographer},${i.event},${i.date},${i.status}`).join("\n");
+      const csvData = "Reference,Client,Contact,Photographer,Event,Date,Status\n" + 
+        state.inquiries.map(i => `${i.id},${i.client},${i.phone || 'N/A'},${i.photographer},${i.event},${i.date},${i.status}`).join("\n");
       const blob = new Blob([csvData], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -196,7 +266,6 @@
     function render() {
       const app = document.getElementById('app');
 
-      // Filter photographers
       const filtered = state.photographers.filter(p => {
         const matchCat = state.category === 'All' || p.specialties.some(s => s.toLowerCase() === state.category.toLowerCase());
         const matchCity = !state.searchQuery || p.city.toLowerCase().includes(state.searchQuery.toLowerCase());
@@ -224,8 +293,8 @@
             <div class="hidden md:flex items-center space-x-6 text-xs font-mono uppercase tracking-widest text-zinc-400">
               <button onclick="setView('home')" class="${state.view === 'home' ? 'text-cyan-400 font-bold' : 'hover:text-white'}">Home</button>
               <button onclick="setView('explore')" class="${state.view === 'explore' ? 'text-cyan-400 font-bold' : 'hover:text-white'}">Explore (${state.photographers.length})</button>
-              <button onclick="setView('admin')" class="px-3 py-1.5 rounded-lg border ${state.view === 'admin' ? 'border-indigo-500 text-white bg-indigo-600/20' : 'border-white/10 text-zinc-300 hover:border-cyan-400'}">
-                ⚙️ Admin Panel
+              <button onclick="setView('admin')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border ${state.view === 'admin' ? 'border-indigo-500 text-white bg-indigo-600/20' : 'border-white/10 text-zinc-300 hover:border-cyan-400'}">
+                <span>🔒 Admin Panel</span>
               </button>
             </div>
 
@@ -262,7 +331,7 @@
                   Explore Photographers (${state.photographers.length})
                 </button>
                 <button onclick="setView('admin')" class="px-8 py-3.5 rounded-full border border-white/20 hover:bg-white/5 text-white text-xs font-mono font-bold uppercase tracking-widest">
-                  + Add Photographer (Admin)
+                  🔒 Admin Console
                 </button>
               </div>
             </section>
@@ -274,7 +343,7 @@
                   ${['01. Discover Photographers', '02. Explore Portfolios', '03. Submit a Request', '04. Finalize Booking'].map((step) => `
                     <div class="p-6 rounded-2xl bg-[#0F1117] border border-white/5 space-y-2">
                       <span class="text-base font-mono text-cyan-400 font-bold">${step}</span>
-                      <p class="text-xs text-zinc-400">Direct client-to-photographer collaboration with zero listing fees.</p>
+                      <p class="text-xs text-zinc-400">Direct client-to-photographer collaboration with instant WhatsApp notifications.</p>
                     </div>
                   `).join('')}
                 </div>
@@ -309,11 +378,11 @@
               </div>
               <div>
                 <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Search City</label>
-                <input type="text" placeholder="e.g. New York, Chicago, Dhaka..." value="${state.searchQuery}" oninput="setSearch(this.value)" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                <input type="text" placeholder="e.g. Dhaka, Chittagong, Sylhet..." value="${state.searchQuery}" oninput="setSearch(this.value)" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
               </div>
             </div>
 
-            <!-- Photographers Grid -->
+            <!-- Photographers Grid with BDT Currency -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               ${filtered.length > 0 ? filtered.map(p => `
                 <div class="rounded-2xl bg-[#0F1117] border border-white/10 overflow-hidden flex flex-col justify-between">
@@ -335,7 +404,7 @@
                     <div class="pt-4 mt-6 border-t border-white/10 flex items-center justify-between">
                       <div>
                         <span class="text-[10px] text-zinc-500 font-mono block">Starting At</span>
-                        <span class="text-sm font-bold font-mono text-white">$${p.price}</span>
+                        <span class="text-sm font-bold font-mono text-white">৳${p.price.toLocaleString('en-IN')} <span class="text-[10px] text-zinc-400">BDT</span></span>
                       </div>
                       <button onclick="openHireModal('${p.id}')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-mono font-bold uppercase text-white shadow-lg">
                         Hire Now
@@ -352,28 +421,36 @@
           </main>
         ` : ''}
 
-        <!-- VIEW: ADMIN PANEL -->
+        <!-- VIEW: ADMIN PANEL (PROTECTED) -->
         ${state.view === 'admin' ? `
           <main class="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
             <div class="p-6 rounded-2xl bg-[#0F1117] border border-white/10 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <span class="text-[10px] font-mono uppercase tracking-widest text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-1 rounded-full">
-                  MASTER CONTROL PANEL
-                </span>
+                <div class="flex items-center space-x-2">
+                  <span class="text-[10px] font-mono uppercase tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+                    ● UNLOCKED & AUTHORIZED
+                  </span>
+                  <button onclick="handleAdminLogout()" class="text-[10px] font-mono text-rose-400 hover:underline">
+                    (Lock & Logout)
+                  </button>
+                </div>
                 <h1 class="text-3xl font-black uppercase text-white mt-2">VISUAL Administrator Console</h1>
                 <p class="text-xs text-zinc-400 mt-1">Platform Owner & Operator: <strong class="text-white">${siteConfig.owner}</strong></p>
               </div>
 
               <!-- Admin Tabs -->
               <div class="flex items-center space-x-2 bg-black/40 p-1.5 rounded-xl border border-white/10">
-                <button onclick="setAdminTab('add')" class="px-4 py-2 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'add' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
-                  + Add Photographer
+                <button onclick="setAdminTab('add')" class="px-3 py-1.5 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'add' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
+                  + Add Artist
                 </button>
-                <button onclick="setAdminTab('list')" class="px-4 py-2 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'list' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
+                <button onclick="setAdminTab('list')" class="px-3 py-1.5 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'list' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
                   Manage (${state.photographers.length})
                 </button>
-                <button onclick="setAdminTab('inquiries')" class="px-4 py-2 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'inquiries' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
+                <button onclick="setAdminTab('inquiries')" class="px-3 py-1.5 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'inquiries' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
                   Inquiries (${state.inquiries.length})
+                </button>
+                <button onclick="setAdminTab('settings')" class="px-3 py-1.5 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'settings' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
+                  ⚙️ Settings
                 </button>
               </div>
             </div>
@@ -392,7 +469,7 @@
                     </div>
                     <div>
                       <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">City / Location *</label>
-                      <input required name="p_city" type="text" placeholder="e.g. Dhaka, New York" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
+                      <input required name="p_city" type="text" placeholder="e.g. Dhaka, Chittagong" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
                     </div>
                   </div>
 
@@ -402,11 +479,11 @@
                       <input required name="p_specialties" type="text" placeholder="Wedding, Portrait, Fashion" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
                     </div>
                     <div>
-                      <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Starting Price ($) *</label>
-                      <input required name="p_price" type="number" value="500" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
+                      <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Starting Price (৳ BDT) *</label>
+                      <input required name="p_price" type="number" value="6000" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
                     </div>
                     <div>
-                      <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Phone / WhatsApp</label>
+                      <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Contact Phone</label>
                       <input name="p_phone" type="text" placeholder="+8801700000000" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
                     </div>
                   </div>
@@ -422,7 +499,7 @@
                   </div>
 
                   <button type="submit" class="w-full md:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:opacity-90 text-white font-mono text-xs font-bold uppercase tracking-wider shadow-lg">
-                    + Save & Publish Photographer
+                    + Save & Publish Photographer (BDT)
                   </button>
                 </form>
               </div>
@@ -442,7 +519,7 @@
                       <img src="${p.cover}" alt="${p.name}" class="w-14 h-14 rounded-xl object-cover border border-white/10" />
                       <div>
                         <h4 class="text-sm font-bold text-white">${p.name}</h4>
-                        <p class="text-xs text-zinc-400">${p.city} • Starting: $${p.price}</p>
+                        <p class="text-xs text-zinc-400">${p.city} • Starting: ৳${p.price.toLocaleString('en-IN')} BDT</p>
                         <p class="text-[10px] text-zinc-500 font-mono">${p.specialties.join(', ')}</p>
                       </div>
                     </div>
@@ -470,31 +547,108 @@
                       <span class="text-xs font-mono text-cyan-400 font-bold">${inq.id}</span>
                       <h4 class="text-sm font-bold text-white">${inq.event} — ${inq.client}</h4>
                       <p class="text-xs text-zinc-400">Photographer: <strong>${inq.photographer}</strong> • Date: ${inq.date}</p>
+                      <p class="text-[10px] text-zinc-500">Contact: ${inq.phone || 'N/A'}</p>
                     </div>
                     <span class="text-xs font-mono bg-white/5 px-3 py-1 rounded-lg text-emerald-400">${inq.status}</span>
                   </div>
                 `).join('')}
               </div>
             ` : ''}
+
+            <!-- TAB 4: SETTINGS (PASSWORD & WHATSAPP) -->
+            ${state.adminTab === 'settings' ? `
+              <div class="p-8 rounded-2xl bg-[#0F1117] border border-white/10 max-w-xl">
+                <h2 class="text-xl font-bold text-white uppercase font-mono mb-1">অ্যাডমিন সিকিউরিটি ও WhatsApp সেটিংস</h2>
+                <p class="text-xs text-zinc-400 mb-6">এখানে আপনার পাসওয়ার্ড এবং WhatsApp নম্বর পরিবর্তন করুন।</p>
+
+                <form onsubmit="handleUpdateSettings(event)" class="space-y-4">
+                  <div>
+                    <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">আপনার WhatsApp নম্বর (যে নম্বরে বুকিং মেসেজ আসবে) *</label>
+                    <input required name="new_wa" type="text" value="${state.adminWhatsApp}" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-mono" />
+                    <p class="text-[10px] text-zinc-500 mt-1">দেশ কোড সহ লিখুন, যেমন: +88017XXXXXXXX</p>
+                  </div>
+
+                  <div>
+                    <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">নতুন অ্যাডমিন পাসওয়ার্ড *</label>
+                    <input required name="new_pass" type="text" value="${state.adminPassword}" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-mono" />
+                  </div>
+
+                  <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold uppercase tracking-wider">
+                    Save New Settings
+                  </button>
+                </form>
+              </div>
+            ` : ''}
           </main>
         ` : ''}
 
-        <!-- HIRING MODAL -->
-        ${state.modalOpen ? `
-          <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-[#0F1117] border border-white/10 rounded-2xl p-6 w-full max-w-md relative">
-              <button onclick="closeHireModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-white">✕</button>
-              <h3 class="text-lg font-bold text-white">Hire ${state.selectedPhotographer ? state.selectedPhotographer.name : 'Photographer'}</h3>
-              <p class="text-xs text-zinc-400 mt-1">Submit your project details directly.</p>
+        <!-- ADMIN LOGIN MODAL -->
+        ${state.loginModalOpen ? `
+          <div class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div class="bg-[#0F1117] border border-white/10 rounded-3xl p-8 w-full max-w-md relative shadow-2xl">
+              <button onclick="state.loginModalOpen=false; render();" class="absolute top-5 right-5 text-zinc-500 hover:text-white">✕</button>
+              
+              <div class="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-xl mb-4">
+                🔒
+              </div>
+              <h3 class="text-xl font-black text-white uppercase tracking-tight">Admin Authentication</h3>
+              <p class="text-xs text-zinc-400 mt-1">Restricted Access: <strong>${siteConfig.owner}</strong> Only.</p>
 
-              <form onsubmit="handleHireSubmit(event)" class="space-y-3 mt-4">
-                <input required name="c_name" type="text" placeholder="Your Full Name" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
-                <input required name="c_event" type="text" placeholder="Event Type (e.g. Wedding, Fashion)" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
-                <input required name="c_date" type="date" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
-                <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-mono font-bold uppercase text-white transition">
-                  Send Hiring Inquiry
+              <form onsubmit="handleAdminLogin(event)" class="space-y-4 mt-6">
+                <div>
+                  <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Admin Passcode *</label>
+                  <input required name="pass" type="password" placeholder="Enter password..." class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" />
+                  ${state.loginError ? `<p class="text-xs text-rose-400 mt-1.5 font-mono">❌ ভুল পাসওয়ার্ড! আবার চেষ্টা করুন।</p>` : ''}
+                </div>
+
+                <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-mono text-xs font-bold uppercase tracking-wider shadow-lg">
+                  Unlock Admin Console
                 </button>
               </form>
+              <p class="text-[10px] text-zinc-600 font-mono text-center mt-4">Protected by VISUAL Security Protocol</p>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- HIRING MODAL WITH DIRECT WHATSAPP INTEGRATION -->
+        ${state.modalOpen ? `
+          <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-[#0F1117] border border-white/10 rounded-3xl p-6 w-full max-w-md relative shadow-2xl">
+              <button onclick="closeHireModal()" class="absolute top-5 right-5 text-zinc-500 hover:text-white">✕</button>
+              
+              ${!state.lastSubmittedInquiry ? `
+                <h3 class="text-lg font-bold text-white">Hire ${state.selectedPhotographer ? state.selectedPhotographer.name : 'Photographer'}</h3>
+                <p class="text-xs text-zinc-400 mt-1">Submit your specifications. You will get a tracking code and WhatsApp forward.</p>
+
+                <form onsubmit="handleHireSubmit(event)" class="space-y-3 mt-4">
+                  <input required name="c_name" type="text" placeholder="Your Full Name *" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                  <input required name="c_phone" type="tel" placeholder="Your Phone / WhatsApp *" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                  <input required name="c_event" type="text" placeholder="Event Type (e.g. Wedding, Birthday) *" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                  <input required name="c_date" type="date" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                  <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-mono font-bold uppercase text-white transition shadow-lg">
+                    Submit Hiring Request
+                  </button>
+                </form>
+              ` : `
+                <!-- SUCCESS & DIRECT WHATSAPP DISPATCH CARD -->
+                <div class="text-center py-4 space-y-4">
+                  <div class="w-14 h-14 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto text-2xl">
+                    ✅
+                  </div>
+                  <h3 class="text-xl font-black text-white">Request Registered!</h3>
+                  <p class="text-xs text-zinc-400">Your unique tracking code:</p>
+                  <div class="inline-block px-5 py-2.5 bg-black/60 border border-white/10 rounded-xl font-mono text-cyan-400 font-bold text-base">
+                    ${state.lastSubmittedInquiry.id}
+                  </div>
+                  
+                  <div class="pt-2">
+                    <a href="${state.lastSubmittedInquiry.waUrl}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center space-x-2 w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold uppercase tracking-wider shadow-lg transition">
+                      <span>📱 Send via WhatsApp Now</span>
+                    </a>
+                    <p class="text-[10px] text-zinc-500 mt-2">বাটনে ক্লিক করলে মেসেজটি সাজানো অবস্থায় আপনার WhatsApp-এ চলে যাবে।</p>
+                  </div>
+                </div>
+              `}
             </div>
           </div>
         ` : ''}
@@ -515,7 +669,7 @@
       `;
     }
 
-    // Launch immediately on page load
+    // Launch immediately
     render();
   </script>
 </body>
