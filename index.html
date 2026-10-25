@@ -4,15 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VISUAL | Photographer Hiring Marketplace</title>
-  <!-- Tailwind CSS CDN -->
+  <!-- Fast, Reliable Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React & ReactDOM -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel for JSX -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -30,15 +23,16 @@
     }
   </script>
   <style>
-    body { background-color: #07080B; color: #F3F4F6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #07080B; color: #F3F4F6; font-family: system-ui, -apple-system, sans-serif; }
   </style>
 </head>
-<body>
-  <div id="root"></div>
+<body class="min-h-screen flex flex-col justify-between">
 
-  <script type="text/babel">
-    const { useState, useMemo, useEffect } = React;
+  <!-- APP CONTAINER -->
+  <div id="app"></div>
 
+  <!-- ZERO-DEPENDENCY NATIVE JAVASCRIPT (Runs 100% reliably in Brave & all browsers) -->
+  <script>
     const siteConfig = {
       name: "VISUAL",
       tagline: "SEE THE MOMENT. FEEL THE STORY.",
@@ -87,262 +81,442 @@
       }
     ];
 
-    function App() {
-      const [view, setView] = useState('home');
-      const [category, setCategory] = useState('All');
-      const [searchQuery, setSearchQuery] = useState('');
-      const [hiringModal, setHiringModal] = useState(false);
-      const [selectedPhotographer, setSelectedPhotographer] = useState(null);
-      const [adminTab, setAdminTab] = useState('add');
+    // State Store with LocalStorage
+    let state = {
+      view: 'home',
+      category: 'All',
+      searchQuery: '',
+      adminTab: 'add',
+      modalOpen: false,
+      selectedPhotographer: null,
+      photographers: JSON.parse(localStorage.getItem('visual_photographers')) || DEFAULT_PHOTOGRAPHERS,
+      inquiries: JSON.parse(localStorage.getItem('visual_inquiries')) || [
+        { id: 'VIS-HR-10928', client: 'Sarah Khan', photographer: 'Elena Vance Visuals', event: 'Wedding Reception', date: '2026-11-20', status: 'Pending' }
+      ]
+    };
 
-      // LocalStorage Persistence for Photographers
-      const [photographers, setPhotographers] = useState(() => {
-        const saved = localStorage.getItem('visual_photographers');
-        return saved ? JSON.parse(saved) : DEFAULT_PHOTOGRAPHERS;
+    function saveState() {
+      localStorage.setItem('visual_photographers', JSON.stringify(state.photographers));
+      localStorage.setItem('visual_inquiries', JSON.stringify(state.inquiries));
+    }
+
+    function setView(v) {
+      state.view = v;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function setCategory(cat) {
+      state.category = cat;
+      render();
+    }
+
+    function setSearch(q) {
+      state.searchQuery = q;
+      render();
+    }
+
+    function setAdminTab(tab) {
+      state.adminTab = tab;
+      render();
+    }
+
+    function openHireModal(id) {
+      state.selectedPhotographer = state.photographers.find(p => p.id === id);
+      state.modalOpen = true;
+      render();
+    }
+
+    function closeHireModal() {
+      state.modalOpen = false;
+      render();
+    }
+
+    function handleAddPhotographer(e) {
+      e.preventDefault();
+      const f = e.target;
+      const newPhoto = {
+        id: 'photo-' + Date.now(),
+        name: f.p_name.value,
+        city: f.p_city.value,
+        specialties: f.p_specialties.value.split(',').map(s => s.trim()),
+        price: Number(f.p_price.value),
+        rating: 5.0,
+        phone: f.p_phone.value || '+1 000-000-0000',
+        cover: f.p_cover.value || 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=800&q=80',
+        bio: f.p_bio.value
+      };
+
+      state.photographers.unshift(newPhoto);
+      saveState();
+      alert(`ফটোগ্রাফার "${newPhoto.name}" সফলভাবে যুক্ত হয়েছে! Explore পেজে গিয়ে দেখুন।`);
+      state.adminTab = 'list';
+      render();
+    }
+
+    function handleDeletePhotographer(id, name) {
+      if (confirm(`আপনি কি "${name}" কে প্ল্যাটফর্ম থেকে মুছে ফেলতে চান?`)) {
+        state.photographers = state.photographers.filter(p => p.id !== id);
+        saveState();
+        render();
+      }
+    }
+
+    function handleHireSubmit(e) {
+      e.preventDefault();
+      const f = e.target;
+      const ref = 'VIS-HR-' + Math.floor(100000 + Math.random() * 900000);
+      const newInq = {
+        id: ref,
+        client: f.c_name.value,
+        photographer: state.selectedPhotographer ? state.selectedPhotographer.name : 'Talent',
+        event: f.c_event.value,
+        date: f.c_date.value,
+        status: 'Pending'
+      };
+      state.inquiries.unshift(newInq);
+      saveState();
+      alert(`Success! আপনার হায়ার রিকোয়েস্ট পাঠানো হয়েছে। ট্র্যাকিং রেফারেন্স: ${ref}`);
+      state.modalOpen = false;
+      render();
+    }
+
+    function downloadCSV() {
+      const csvData = "Reference,Client,Photographer,Event,Date,Status\n" + 
+        state.inquiries.map(i => `${i.id},${i.client},${i.photographer},${i.event},${i.date},${i.status}`).join("\n");
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `visual_inquiries_${Date.now()}.csv`;
+      a.click();
+    }
+
+    // MAIN RENDER ENGINE
+    function render() {
+      const app = document.getElementById('app');
+
+      // Filter photographers
+      const filtered = state.photographers.filter(p => {
+        const matchCat = state.category === 'All' || p.specialties.some(s => s.toLowerCase() === state.category.toLowerCase());
+        const matchCity = !state.searchQuery || p.city.toLowerCase().includes(state.searchQuery.toLowerCase());
+        return matchCat && matchCity;
       });
 
-      // LocalStorage Persistence for Hiring Inquiries
-      const [inquiries, setInquiries] = useState(() => {
-        const saved = localStorage.getItem('visual_inquiries');
-        return saved ? JSON.parse(saved) : [
-          { id: 'VIS-HR-10928', client: 'Sarah Khan', photographer: 'Elena Vance Visuals', event: 'Wedding Reception', date: '2026-11-20', status: 'Pending' }
-        ];
-      });
-
-      // Save on change
-      useEffect(() => {
-        localStorage.setItem('visual_photographers', JSON.stringify(photographers));
-      }, [photographers]);
-
-      useEffect(() => {
-        localStorage.setItem('visual_inquiries', JSON.stringify(inquiries));
-      }, [inquiries]);
-
-      // Handle Adding New Photographer Manually
-      const handleAddPhotographer = (e) => {
-        e.preventDefault();
-        const f = e.target;
-        const newPhoto = {
-          id: 'photo-' + Date.now(),
-          name: f.p_name.value,
-          city: f.p_city.value,
-          specialties: f.p_specialties.value.split(',').map(s => s.trim()),
-          price: Number(f.p_price.value),
-          rating: 5.0,
-          phone: f.p_phone.value || '+1 000-000-0000',
-          cover: f.p_cover.value || 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=800&q=80',
-          bio: f.p_bio.value
-        };
-
-        setPhotographers([newPhoto, ...photographers]);
-        alert(`ফটোগ্রাফার "${newPhoto.name}" সফলভাবে যুক্ত হয়েছে! এটি এখন Explore পেজে দেখা যাবে।`);
-        f.reset();
-        setAdminTab('list');
-      };
-
-      // Handle Deleting Photographer
-      const handleDeletePhotographer = (id, name) => {
-        if (confirm(`আপনি কি সত্যিই "${name}" কে প্ল্যাটফর্ম থেকে মুছে ফেলতে চান?`)) {
-          setPhotographers(photographers.filter(p => p.id !== id));
-        }
-      };
-
-      // Handle Hiring Submission
-      const handleHireSubmit = (e) => {
-        e.preventDefault();
-        const ref = 'VIS-HR-' + Math.floor(100000 + Math.random() * 900000);
-        const name = e.target.c_name.value;
-        const ev = e.target.c_event.value;
-        const date = e.target.c_date.value;
-        const newInq = {
-          id: ref,
-          client: name,
-          photographer: selectedPhotographer?.name || 'Assigned Talent',
-          event: ev,
-          date,
-          status: 'Pending'
-        };
-        setInquiries([newInq, ...inquiries]);
-        alert(`Success! আপনার হায়ার রিকোয়েস্ট পাঠানো হয়েছে। রেফারেন্স কোড: ${ref}`);
-        setHiringModal(false);
-      };
-
-      const filtered = useMemo(() => {
-        return photographers.filter(p => {
-          const matchCat = category === 'All' || p.specialties.some(s => s.toLowerCase() === category.toLowerCase());
-          const matchCity = !searchQuery || p.city.toLowerCase().includes(searchQuery.toLowerCase());
-          return matchCat && matchCity;
-        });
-      }, [photographers, category, searchQuery]);
-
-      return (
-        <div className="min-h-screen flex flex-col justify-between">
-          
-          {/* NAVIGATION BAR */}
-          <nav className="sticky top-0 z-50 bg-[#07080B]/90 backdrop-blur-md border-b border-white/10 px-6 py-4">
-            <div className="max-w-7xl mx-auto flex items-center justify-between">
-              
-              <div onClick={() => setView('home')} className="cursor-pointer flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white text-xl shadow-[0_0_15px_rgba(99,102,241,0.5)]">
-                  V
-                </div>
-                <div>
-                  <span className="text-xl font-black tracking-widest text-white uppercase block leading-none font-mono">
-                    {siteConfig.name}
-                  </span>
-                  <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">
-                    PHOTOGRAPHER HUB
-                  </span>
-                </div>
+      app.innerHTML = `
+        <!-- NAVBAR -->
+        <nav class="sticky top-0 z-40 bg-[#07080B]/90 backdrop-blur-md border-b border-white/10 px-6 py-4">
+          <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div onclick="setView('home')" class="cursor-pointer flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white text-xl shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+                V
               </div>
+              <div>
+                <span class="text-xl font-black tracking-widest text-white uppercase block leading-none font-mono">
+                  ${siteConfig.name}
+                </span>
+                <span class="text-[9px] font-mono tracking-widest text-zinc-500 uppercase">
+                  PHOTOGRAPHER HUB
+                </span>
+              </div>
+            </div>
 
-              {/* View Switches */}
-              <div className="hidden md:flex items-center space-x-6 text-xs font-mono uppercase tracking-widest text-zinc-400">
-                <button onClick={() => setView('home')} className={view === 'home' ? 'text-cyan-400 font-bold' : 'hover:text-white'}>Home</button>
-                <button onClick={() => setView('explore')} className={view === 'explore' ? 'text-cyan-400 font-bold' : 'hover:text-white'}>Explore ({photographers.length})</button>
-                <button onClick={() => setView('admin')} className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border transition ${view === 'admin' ? 'border-indigo-500 text-white bg-indigo-600/20' : 'border-white/10 hover:border-cyan-400 text-zinc-300'}`}>
-                  <span>⚙️ Admin Panel</span>
+            <div class="hidden md:flex items-center space-x-6 text-xs font-mono uppercase tracking-widest text-zinc-400">
+              <button onclick="setView('home')" class="${state.view === 'home' ? 'text-cyan-400 font-bold' : 'hover:text-white'}">Home</button>
+              <button onclick="setView('explore')" class="${state.view === 'explore' ? 'text-cyan-400 font-bold' : 'hover:text-white'}">Explore (${state.photographers.length})</button>
+              <button onclick="setView('admin')" class="px-3 py-1.5 rounded-lg border ${state.view === 'admin' ? 'border-indigo-500 text-white bg-indigo-600/20' : 'border-white/10 text-zinc-300 hover:border-cyan-400'}">
+                ⚙️ Admin Panel
+              </button>
+            </div>
+
+            <div class="flex items-center space-x-3">
+              <button onclick="setView('admin')" class="px-4 py-2 rounded-full border border-indigo-500/50 hover:bg-indigo-600/10 text-xs font-mono text-cyan-400 font-bold uppercase">
+                + Add Photographer
+              </button>
+              <button onclick="setView('explore')" class="px-5 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 text-xs font-mono font-bold uppercase text-white shadow-lg">
+                Find Talent
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <!-- VIEW: HOME -->
+        ${state.view === 'home' ? `
+          <main class="flex-1">
+            <section class="text-center py-24 px-6 relative">
+              <div class="inline-block px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-[10px] font-mono uppercase tracking-widest text-cyan-400 mb-6">
+                ${siteConfig.tagline}
+              </div>
+              <h1 class="text-5xl md:text-7xl font-black uppercase tracking-tight max-w-4xl mx-auto leading-tight">
+                YOUR VISION. <br />
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-cyan-400">
+                  THE RIGHT PHOTOGRAPHER.
+                </span>
+              </h1>
+              <p class="text-zinc-400 text-sm max-w-xl mx-auto mt-6">
+                Discover exceptional photographers, explore extraordinary portfolios, and find the perfect professional for your next unforgettable moment.
+              </p>
+
+              <div class="mt-10 flex flex-wrap justify-center gap-4">
+                <button onclick="setView('explore')" class="px-8 py-3.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold uppercase tracking-widest shadow-lg">
+                  Explore Photographers (${state.photographers.length})
+                </button>
+                <button onclick="setView('admin')" class="px-8 py-3.5 rounded-full border border-white/20 hover:bg-white/5 text-white text-xs font-mono font-bold uppercase tracking-widest">
+                  + Add Photographer (Admin)
                 </button>
               </div>
+            </section>
 
-              <div className="flex items-center space-x-3">
-                <button onClick={() => setView('admin')} className="px-4 py-2 rounded-full border border-indigo-500/50 hover:bg-indigo-600/10 text-xs font-mono text-cyan-400 font-bold uppercase transition">
+            <section class="py-16 border-t border-white/10 bg-[#0A0C10] px-6">
+              <div class="max-w-6xl mx-auto">
+                <h2 class="text-2xl font-black uppercase text-center mb-12">How VISUAL Works</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  ${['01. Discover Photographers', '02. Explore Portfolios', '03. Submit a Request', '04. Finalize Booking'].map((step) => `
+                    <div class="p-6 rounded-2xl bg-[#0F1117] border border-white/5 space-y-2">
+                      <span class="text-base font-mono text-cyan-400 font-bold">${step}</span>
+                      <p class="text-xs text-zinc-400">Direct client-to-photographer collaboration with zero listing fees.</p>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </section>
+          </main>
+        ` : ''}
+
+        <!-- VIEW: EXPLORE -->
+        ${state.view === 'explore' ? `
+          <main class="flex-1 max-w-7xl mx-auto px-6 py-12 w-full">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+              <div>
+                <h1 class="text-3xl font-black uppercase">Explore Photographers</h1>
+                <p class="text-xs text-zinc-400">Showing ${filtered.length} verified independent photography artists.</p>
+              </div>
+              <button onclick="setView('admin')" class="self-start px-4 py-2 rounded-xl bg-indigo-600/30 border border-indigo-500/50 text-xs font-mono text-cyan-400">
+                + Add New Photographer (Admin)
+              </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="p-4 rounded-2xl bg-[#0F1117] border border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              <div>
+                <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Filter by Category</label>
+                <select onchange="setCategory(this.value)" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
+                  <option value="All" ${state.category === 'All' ? 'selected' : ''}>All Categories</option>
+                  ${siteConfig.categories.map(c => `
+                    <option value="${c}" ${state.category === c ? 'selected' : ''}>${c}</option>
+                  `).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Search City</label>
+                <input type="text" placeholder="e.g. New York, Chicago, Dhaka..." value="${state.searchQuery}" oninput="setSearch(this.value)" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+              </div>
+            </div>
+
+            <!-- Photographers Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              ${filtered.length > 0 ? filtered.map(p => `
+                <div class="rounded-2xl bg-[#0F1117] border border-white/10 overflow-hidden flex flex-col justify-between">
+                  <div class="h-52 bg-zinc-800 relative">
+                    <img src="${p.cover}" alt="${p.name}" class="w-full h-full object-cover" />
+                    <span class="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-mono">${p.city}</span>
+                    <span class="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-mono text-amber-400">★ ${p.rating}</span>
+                  </div>
+                  <div class="p-6 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 class="text-base font-bold text-white">${p.name}</h3>
+                      <p class="text-xs text-zinc-400 mt-2 line-clamp-2">${p.bio}</p>
+                      <div class="flex flex-wrap gap-1 mt-3">
+                        ${p.specialties.map(s => `
+                          <span class="text-[9px] font-mono bg-white/5 border border-white/10 px-2 py-0.5 rounded text-zinc-300">${s}</span>
+                        `).join('')}
+                      </div>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-white/10 flex items-center justify-between">
+                      <div>
+                        <span class="text-[10px] text-zinc-500 font-mono block">Starting At</span>
+                        <span class="text-sm font-bold font-mono text-white">$${p.price}</span>
+                      </div>
+                      <button onclick="openHireModal('${p.id}')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-mono font-bold uppercase text-white shadow-lg">
+                        Hire Now
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `).join('') : `
+                <div class="col-span-3 text-center py-16 text-zinc-500 font-mono text-sm">
+                  কোনো ফটোগ্রাফার পাওয়া যায়নি। আপনি অ্যাডমিন প্যানেল থেকে নতুন ফটোগ্রাফার যোগ করতে পারেন।
+                </div>
+              `}
+            </div>
+          </main>
+        ` : ''}
+
+        <!-- VIEW: ADMIN PANEL -->
+        ${state.view === 'admin' ? `
+          <main class="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
+            <div class="p-6 rounded-2xl bg-[#0F1117] border border-white/10 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <span class="text-[10px] font-mono uppercase tracking-widest text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-1 rounded-full">
+                  MASTER CONTROL PANEL
+                </span>
+                <h1 class="text-3xl font-black uppercase text-white mt-2">VISUAL Administrator Console</h1>
+                <p class="text-xs text-zinc-400 mt-1">Platform Owner & Operator: <strong class="text-white">${siteConfig.owner}</strong></p>
+              </div>
+
+              <!-- Admin Tabs -->
+              <div class="flex items-center space-x-2 bg-black/40 p-1.5 rounded-xl border border-white/10">
+                <button onclick="setAdminTab('add')" class="px-4 py-2 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'add' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
                   + Add Photographer
                 </button>
-                <button onClick={() => setView('explore')} className="px-5 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 text-xs font-mono font-bold uppercase text-white shadow-lg hover:opacity-90 transition">
-                  Find Talent
+                <button onclick="setAdminTab('list')" class="px-4 py-2 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'list' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
+                  Manage (${state.photographers.length})
+                </button>
+                <button onclick="setAdminTab('inquiries')" class="px-4 py-2 rounded-lg text-xs font-mono uppercase ${state.adminTab === 'inquiries' ? 'bg-indigo-600 text-white font-bold' : 'text-zinc-400 hover:text-white'}">
+                  Inquiries (${state.inquiries.length})
                 </button>
               </div>
             </div>
-          </nav>
 
-          {/* VIEW 1: HOMEPAGE */}
-          {view === 'home' && (
-            <main className="flex-1">
-              <section className="text-center py-24 px-6 relative">
-                <div className="inline-block px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-[10px] font-mono uppercase tracking-widest text-cyan-400 mb-6">
-                  {siteConfig.tagline}
-                </div>
-                <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tight max-w-4xl mx-auto leading-tight">
-                  YOUR VISION. <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-cyan-400">
-                    THE RIGHT PHOTOGRAPHER.
-                  </span>
-                </h1>
-                <p className="text-zinc-400 text-sm max-w-xl mx-auto mt-6">
-                  Discover talented photographers, explore extraordinary portfolios, and find the perfect professional for your next unforgettable moment.
-                </p>
+            <!-- TAB 1: ADD PHOTOGRAPHER -->
+            ${state.adminTab === 'add' ? `
+              <div class="p-8 rounded-2xl bg-[#0F1117] border border-white/10">
+                <h2 class="text-xl font-bold text-white uppercase font-mono mb-1">ম্যানুয়ালি নতুন ফটোগ্রাফার যুক্ত করুন</h2>
+                <p class="text-xs text-zinc-400 mb-6">এই ফর্ম পূরণ করে সাবমিট করলে ফটোগ্রাফার সরাসরি Explore পেজে লাইভ হয়ে যাবে।</p>
 
-                <div className="mt-10 flex flex-wrap justify-center gap-4">
-                  <button onClick={() => setView('explore')} className="px-8 py-3.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold uppercase tracking-widest shadow-[0_0_25px_rgba(99,102,241,0.4)]">
-                    Explore Photographers ({photographers.length})
-                  </button>
-                  <button onClick={() => setView('admin')} className="px-8 py-3.5 rounded-full border border-white/20 hover:bg-white/5 text-white text-xs font-mono font-bold uppercase tracking-widest">
-                    Manage & Add Photographers
-                  </button>
-                </div>
-              </section>
-
-              {/* HOW IT WORKS */}
-              <section className="py-16 border-t border-white/10 bg-[#0A0C10] px-6">
-                <div className="max-w-6xl mx-auto">
-                  <h2 className="text-2xl font-black uppercase text-center mb-12">How VISUAL Works</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {['01. Discover Photographers', '02. Explore Portfolios', '03. Submit a Request', '04. Finalize Booking'].map((step, idx) => (
-                      <div key={idx} className="p-6 rounded-2xl bg-[#0F1117] border border-white/5 space-y-2">
-                        <span className="text-base font-mono text-cyan-400 font-bold">{step}</span>
-                        <p className="text-xs text-zinc-400">Direct client-to-photographer collaboration with zero fees.</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            </main>
-          )}
-
-          {/* VIEW 2: EXPLORE MARKETPLACE */}
-          {view === 'explore' && (
-            <main className="flex-1 max-w-7xl mx-auto px-6 py-12 w-full">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div>
-                  <h1 className="text-3xl font-black uppercase">Explore Photographers</h1>
-                  <p className="text-xs text-zinc-400">Showing {filtered.length} verified independent photography artists.</p>
-                </div>
-                <button onClick={() => setView('admin')} className="self-start px-4 py-2 rounded-xl bg-indigo-600/30 border border-indigo-500/50 text-xs font-mono text-cyan-400">
-                  + Add New Photographer (Admin)
-                </button>
-              </div>
-
-              {/* Filters */}
-              <div className="p-4 rounded-2xl bg-[#0F1117] border border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                <div>
-                  <label className="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Filter by Category</label>
-                  <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
-                    <option value="All">All Categories</option>
-                    {siteConfig.categories.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Search by City</label>
-                  <input type="text" placeholder="e.g. New York, Chicago, Dhaka..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
-                </div>
-              </div>
-
-              {/* Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {filtered.map(p => (
-                  <div key={p.id} className="rounded-2xl bg-[#0F1117] border border-white/10 overflow-hidden flex flex-col justify-between">
-                    <div className="h-52 bg-zinc-800 relative">
-                      <img src={p.cover} alt={p.name} className="w-full h-full object-cover" />
-                      <span className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-mono">{p.city}</span>
-                      <span className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-mono text-amber-400">★ {p.rating}</span>
+                <form onsubmit="handleAddPhotographer(event)" class="space-y-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Photographer / Business Name *</label>
+                      <input required name="p_name" type="text" placeholder="e.g. Arham Studio" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
                     </div>
-                    <div className="p-6 flex-1 flex flex-col justify-between">
+                    <div>
+                      <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">City / Location *</label>
+                      <input required name="p_city" type="text" placeholder="e.g. Dhaka, New York" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Specialties (কমা দিয়ে লিখুন) *</label>
+                      <input required name="p_specialties" type="text" placeholder="Wedding, Portrait, Fashion" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Starting Price ($) *</label>
+                      <input required name="p_price" type="number" value="500" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Phone / WhatsApp</label>
+                      <input name="p_phone" type="text" placeholder="+8801700000000" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Cover Image URL (ফাঁকা রাখলে স্বয়ংক্রিয় ছবি বসবে)</label>
+                    <input name="p_cover" type="url" placeholder="https://images.unsplash.com/..." class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white" />
+                  </div>
+
+                  <div>
+                    <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">Photographer Bio / Description *</label>
+                    <textarea required rows="3" name="p_bio" placeholder="অভিজ্ঞতা, কাজের স্টাইল সম্পর্কে লিখুন..." class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"></textarea>
+                  </div>
+
+                  <button type="submit" class="w-full md:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:opacity-90 text-white font-mono text-xs font-bold uppercase tracking-wider shadow-lg">
+                    + Save & Publish Photographer
+                  </button>
+                </form>
+              </div>
+            ` : ''}
+
+            <!-- TAB 2: MANAGE PROFILES -->
+            ${state.adminTab === 'list' ? `
+              <div class="space-y-3">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="text-sm font-mono uppercase text-zinc-400">Total Active Profiles (${state.photographers.length})</h3>
+                  <button onclick="setAdminTab('add')" class="text-xs font-mono text-cyan-400 hover:underline">+ Add New</button>
+                </div>
+
+                ${state.photographers.map(p => `
+                  <div class="p-4 rounded-xl bg-[#0F1117] border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-center space-x-4">
+                      <img src="${p.cover}" alt="${p.name}" class="w-14 h-14 rounded-xl object-cover border border-white/10" />
                       <div>
-                        <h3 className="text-base font-bold text-white">{p.name}</h3>
-                        <p className="text-xs text-zinc-400 mt-2 line-clamp-2">{p.bio}</p>
-                        <div className="flex flex-wrap gap-1 mt-3">
-                          {p.specialties.map((s, i) => (
-                            <span key={i} className="text-[9px] font-mono bg-white/5 border border-white/10 px-2 py-0.5 rounded text-zinc-300">{s}</span>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="pt-4 mt-6 border-t border-white/10 flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] text-zinc-500 font-mono block">Starting At</span>
-                          <span className="text-sm font-bold font-mono text-white">${p.price}</span>
-                        </div>
-                        <button onClick={() => { setSelectedPhotographer(p); setHiringModal(true); }} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-mono font-bold uppercase text-white shadow-lg">
-                          Hire Now
-                        </button>
+                        <h4 class="text-sm font-bold text-white">${p.name}</h4>
+                        <p class="text-xs text-zinc-400">${p.city} • Starting: $${p.price}</p>
+                        <p class="text-[10px] text-zinc-500 font-mono">${p.specialties.join(', ')}</p>
                       </div>
                     </div>
+                    <button onclick="handleDeletePhotographer('${p.id}', '${p.name}')" class="px-3 py-1.5 rounded-lg bg-rose-950/60 border border-rose-500/30 text-rose-400 text-xs font-mono hover:bg-rose-900/60 transition">
+                      Delete Profile
+                    </button>
                   </div>
-                ))}
+                `).join('')}
               </div>
-            </main>
-          )}
+            ` : ''}
 
-          {/* VIEW 3: COMPREHENSIVE ADMIN PANEL (Er. Md Mutasaddik Arham) */}
-          {view === 'admin' && (
-            <main className="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
-              
-              {/* Admin Header */}
-              <div className="p-6 rounded-2xl bg-[#0F1117] border border-white/10 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-1 rounded-full">
-                    MASTER CONTROL PANEL
-                  </span>
-                  <h1 className="text-3xl font-black uppercase text-white mt-2">VISUAL Administrator Console</h1>
-                  <p className="text-xs text-zinc-400 mt-1">Platform Owner & Operator: <strong className="text-white">{siteConfig.owner}</strong></p>
+            <!-- TAB 3: INQUIRIES -->
+            ${state.adminTab === 'inquiries' ? `
+              <div class="space-y-4">
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="text-sm font-mono uppercase text-zinc-400">Hiring Requests (${state.inquiries.length})</h3>
+                  <button onclick="downloadCSV()" class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-mono text-zinc-300 hover:text-white">
+                    Download CSV
+                  </button>
                 </div>
 
-                {/* Tab Switcher */}
-                <div className="flex items-center space-x-2 bg-black/40 p-1.5 rounded-xl border border-white/10">
-                  <button onClick={() => setAdminTab('add')} className={`px-4 py-2 rounded-lg text-xs font-mono uppercase transition ${adminTab === 'add' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'}`}>
-                    + Add Photographer
-                  </button>
-                  <button onClick={() => setAdminTab('list')} className={`px-4 py-2 rounded-lg text-xs font-mono uppercase transition ${adminTab === 'list' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'}`}>
-                    Manage Profiles ({photographers.length})
-                  </button>
-                  <button on
+                ${state.inquiries.map(inq => `
+                  <div class="p-4 rounded-xl bg-[#0F1117] border border-white/10 flex justify-between items-center">
+                    <div>
+                      <span class="text-xs font-mono text-cyan-400 font-bold">${inq.id}</span>
+                      <h4 class="text-sm font-bold text-white">${inq.event} — ${inq.client}</h4>
+                      <p class="text-xs text-zinc-400">Photographer: <strong>${inq.photographer}</strong> • Date: ${inq.date}</p>
+                    </div>
+                    <span class="text-xs font-mono bg-white/5 px-3 py-1 rounded-lg text-emerald-400">${inq.status}</span>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </main>
+        ` : ''}
+
+        <!-- HIRING MODAL -->
+        ${state.modalOpen ? `
+          <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-[#0F1117] border border-white/10 rounded-2xl p-6 w-full max-w-md relative">
+              <button onclick="closeHireModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-white">✕</button>
+              <h3 class="text-lg font-bold text-white">Hire ${state.selectedPhotographer ? state.selectedPhotographer.name : 'Photographer'}</h3>
+              <p class="text-xs text-zinc-400 mt-1">Submit your project details directly.</p>
+
+              <form onsubmit="handleHireSubmit(event)" class="space-y-3 mt-4">
+                <input required name="c_name" type="text" placeholder="Your Full Name" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                <input required name="c_event" type="text" placeholder="Event Type (e.g. Wedding, Fashion)" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                <input required name="c_date" type="date" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-mono font-bold uppercase text-white transition">
+                  Send Hiring Inquiry
+                </button>
+              </form>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- FOOTER -->
+        <footer class="bg-[#050608] border-t border-white/10 py-10 px-6 text-xs text-zinc-500 mt-12">
+          <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <span class="text-white font-mono font-bold uppercase text-sm block">${siteConfig.name}</span>
+              <span class="text-[11px] text-zinc-500">${siteConfig.tagline}</span>
+            </div>
+            <div class="text-center md:text-right">
+              <p class="text-zinc-300 font-medium">${siteConfig.attribution}</p>
+              <p class="text-[10px] text-zinc-600 mt-0.5">© 2026 VISUAL. All rights reserved.</p>
+            </div>
+          </div>
+        </footer>
+      `;
+    }
+
+    // Launch immediately on page load
+    render();
+  </script>
+</body>
+</html>
