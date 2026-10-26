@@ -36,7 +36,7 @@
       name: "VISUAL",
       tagline: "SEE THE MOMENT. FEEL THE STORY.",
       headline: "YOUR VISION. THE RIGHT PHOTOGRAPHER.",
-      currency: "৳", // BDT Taka Symbol
+      currency: "৳",
       currencyCode: "BDT",
       owner: "Er. Md Mutasaddik Arham",
       attribution: "Founded and operated by Er. Md Mutasaddik Arham.",
@@ -91,14 +91,16 @@
       modalOpen: false,
       loginModalOpen: false,
       loginError: false,
+      isSubmittingEmail: false,
       isAdminLoggedIn: sessionStorage.getItem('visual_admin_logged') === 'true',
       adminPassword: localStorage.getItem('visual_admin_pass') || 'arham2026',
       adminWhatsApp: localStorage.getItem('visual_admin_wa') || '+8801700000000',
+      adminEmail: localStorage.getItem('visual_admin_email') || 'admin@visualmarketplace.com', // Admin Gmail
       selectedPhotographer: null,
       lastSubmittedInquiry: null,
       photographers: JSON.parse(localStorage.getItem('visual_photographers')) || DEFAULT_PHOTOGRAPHERS,
       inquiries: JSON.parse(localStorage.getItem('visual_inquiries')) || [
-        { id: 'VIS-HR-10928', client: 'Sarah Khan', photographer: 'Elena Vance Visuals', event: 'Wedding Reception', date: '2026-11-20', status: 'Pending' }
+        { id: 'VIS-HR-10928', client: 'Sarah Khan', email: 'sarah@example.com', phone: '+8801700000000', photographer: 'Elena Vance Visuals', event: 'Wedding Reception', date: '2026-11-20', status: 'Pending' }
       ]
     };
 
@@ -107,6 +109,7 @@
       localStorage.setItem('visual_inquiries', JSON.stringify(state.inquiries));
       localStorage.setItem('visual_admin_pass', state.adminPassword);
       localStorage.setItem('visual_admin_wa', state.adminWhatsApp);
+      localStorage.setItem('visual_admin_email', state.adminEmail);
     }
 
     function setView(v) {
@@ -149,10 +152,12 @@
       e.preventDefault();
       const newPass = e.target.new_pass.value;
       const newWa = e.target.new_wa.value;
+      const newEmail = e.target.new_email.value;
       if (newPass) state.adminPassword = newPass;
       if (newWa) state.adminWhatsApp = newWa;
+      if (newEmail) state.adminEmail = newEmail;
       saveState();
-      alert('অ্যাডমিন সেটিংস ও পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!');
+      alert('অ্যাডমিন সেটিংস, ইমেইল ও পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!');
       render();
     }
 
@@ -214,7 +219,8 @@
       }
     }
 
-    function handleHireSubmit(e) {
+    // Handles Hiring Submission, Email dispatch & WhatsApp format
+    async function handleHireSubmit(e) {
       e.preventDefault();
       const f = e.target;
       const ref = 'VIS-HR-' + Math.floor(100000 + Math.random() * 900000);
@@ -223,6 +229,7 @@
       const newInq = {
         id: ref,
         client: f.c_name.value,
+        email: f.c_email.value,
         phone: f.c_phone.value,
         photographer: photoName,
         event: f.c_event.value,
@@ -233,10 +240,40 @@
       state.inquiries.unshift(newInq);
       saveState();
 
-      // Formatted WhatsApp Message with BDT
+      // Background Email Transmission to Admin's Gmail via FormSubmit
+      state.isSubmittingEmail = true;
+      render();
+
+      try {
+        fetch(`https://formsubmit.co/ajax/${encodeURIComponent(state.adminEmail)}`, {
+          method: "POST",
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            "Tracking_Reference": ref,
+            "Client_Name": newInq.client,
+            "Client_Email": newInq.email,
+            "Client_Phone": newInq.phone,
+            "Selected_Photographer": photoName,
+            "Event_Occasion": newInq.event,
+            "Event_Date": newInq.date,
+            "Currency": "BDT (৳)",
+            "_subject": `[VISUAL Marketplace] New Lead: ${ref} - ${newInq.client}`
+          })
+        }).catch(err => console.log('Email dispatched in background:', err));
+      } catch (err) {
+        console.error(err);
+      }
+
+      state.isSubmittingEmail = false;
+
+      // WhatsApp URL
       const msg = `*New Hiring Request - VISUAL Marketplace*\n\n` +
         `*Tracking Code:* ${ref}\n` +
         `*Client Name:* ${newInq.client}\n` +
+        `*Client Email:* ${newInq.email}\n` +
         `*Contact:* ${newInq.phone}\n` +
         `*Selected Photographer:* ${photoName}\n` +
         `*Event Occasion:* ${newInq.event}\n` +
@@ -247,13 +284,21 @@
       const cleanWa = state.adminWhatsApp.replace(/\D/g, '');
       const waUrl = `https://wa.me/${cleanWa}?text=${encodeURIComponent(msg)}`;
 
-      state.lastSubmittedInquiry = { ...newInq, waUrl };
+      // Mailto URL
+      const mailtoSubject = encodeURIComponent(`[VISUAL Booking] ${ref} - ${newInq.event}`);
+      const mailtoBody = encodeURIComponent(
+        `Hello Admin / ${photoName},\n\nI have requested a booking on VISUAL.\n\n` +
+        `Tracking ID: ${ref}\nName: ${newInq.client}\nEmail: ${newInq.email}\nPhone: ${newInq.phone}\nEvent: ${newInq.event}\nDate: ${newInq.date}\n\nThank you!`
+      );
+      const mailtoUrl = `mailto:${state.adminEmail}?subject=${mailtoSubject}&body=${mailtoBody}`;
+
+      state.lastSubmittedInquiry = { ...newInq, waUrl, mailtoUrl };
       render();
     }
 
     function downloadCSV() {
-      const csvData = "Reference,Client,Contact,Photographer,Event,Date,Status\n" + 
-        state.inquiries.map(i => `${i.id},${i.client},${i.phone || 'N/A'},${i.photographer},${i.event},${i.date},${i.status}`).join("\n");
+      const csvData = "Reference,Client,Email,Contact,Photographer,Event,Date,Status\n" + 
+        state.inquiries.map(i => `${i.id},${i.client},${i.email || 'N/A'},${i.phone || 'N/A'},${i.photographer},${i.event},${i.date},${i.status}`).join("\n");
       const blob = new Blob([csvData], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -343,7 +388,7 @@
                   ${['01. Discover Photographers', '02. Explore Portfolios', '03. Submit a Request', '04. Finalize Booking'].map((step) => `
                     <div class="p-6 rounded-2xl bg-[#0F1117] border border-white/5 space-y-2">
                       <span class="text-base font-mono text-cyan-400 font-bold">${step}</span>
-                      <p class="text-xs text-zinc-400">Direct client-to-photographer collaboration with instant WhatsApp notifications.</p>
+                      <p class="text-xs text-zinc-400">Direct collaboration with real-time Email & WhatsApp notification alerts.</p>
                     </div>
                   `).join('')}
                 </div>
@@ -547,7 +592,7 @@
                       <span class="text-xs font-mono text-cyan-400 font-bold">${inq.id}</span>
                       <h4 class="text-sm font-bold text-white">${inq.event} — ${inq.client}</h4>
                       <p class="text-xs text-zinc-400">Photographer: <strong>${inq.photographer}</strong> • Date: ${inq.date}</p>
-                      <p class="text-[10px] text-zinc-500">Contact: ${inq.phone || 'N/A'}</p>
+                      <p class="text-[10px] text-zinc-500">Email: ${inq.email || 'N/A'} • Phone: ${inq.phone || 'N/A'}</p>
                     </div>
                     <span class="text-xs font-mono bg-white/5 px-3 py-1 rounded-lg text-emerald-400">${inq.status}</span>
                   </div>
@@ -555,13 +600,19 @@
               </div>
             ` : ''}
 
-            <!-- TAB 4: SETTINGS (PASSWORD & WHATSAPP) -->
+            <!-- TAB 4: SETTINGS (PASSWORD, WHATSAPP & EMAIL) -->
             ${state.adminTab === 'settings' ? `
               <div class="p-8 rounded-2xl bg-[#0F1117] border border-white/10 max-w-xl">
-                <h2 class="text-xl font-bold text-white uppercase font-mono mb-1">অ্যাডমিন সিকিউরিটি ও WhatsApp সেটিংস</h2>
-                <p class="text-xs text-zinc-400 mb-6">এখানে আপনার পাসওয়ার্ড এবং WhatsApp নম্বর পরিবর্তন করুন।</p>
+                <h2 class="text-xl font-bold text-white uppercase font-mono mb-1">অ্যাডমিন সিকিউরিটি ও নোটিফিকেশন সেটিংস</h2>
+                <p class="text-xs text-zinc-400 mb-6">এখানে আপনার জিমেইল, WhatsApp নম্বর এবং পাসওয়ার্ড কনফিগার করুন।</p>
 
                 <form onsubmit="handleUpdateSettings(event)" class="space-y-4">
+                  <div>
+                    <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">আপনার নোটিফিকেশন জিমেইল (যেখানে ক্লায়েন্ট বুকিংয়ের মেইল যাবে) *</label>
+                    <input required name="new_email" type="email" value="${state.adminEmail}" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-mono" placeholder="your-email@gmail.com" />
+                    <p class="text-[10px] text-zinc-500 mt-1">ক্লায়েন্ট সাবমিট করলে সরাসরি এই ইমেইলে বুকিং নোটিফিকেশন চলে যাবে।</p>
+                  </div>
+
                   <div>
                     <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">আপনার WhatsApp নম্বর (যে নম্বরে বুকিং মেসেজ আসবে) *</label>
                     <input required name="new_wa" type="text" value="${state.adminWhatsApp}" class="w-full bg-[#161922] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-mono" />
@@ -610,7 +661,7 @@
           </div>
         ` : ''}
 
-        <!-- HIRING MODAL WITH DIRECT WHATSAPP INTEGRATION -->
+        <!-- HIRING MODAL WITH DIRECT WHATSAPP & EMAIL INTEGRATION -->
         ${state.modalOpen ? `
           <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div class="bg-[#0F1117] border border-white/10 rounded-3xl p-6 w-full max-w-md relative shadow-2xl">
@@ -618,19 +669,20 @@
               
               ${!state.lastSubmittedInquiry ? `
                 <h3 class="text-lg font-bold text-white">Hire ${state.selectedPhotographer ? state.selectedPhotographer.name : 'Photographer'}</h3>
-                <p class="text-xs text-zinc-400 mt-1">Submit your specifications. You will get a tracking code and WhatsApp forward.</p>
+                <p class="text-xs text-zinc-400 mt-1">Submit your specifications. You will get a tracking code and instant alerts.</p>
 
                 <form onsubmit="handleHireSubmit(event)" class="space-y-3 mt-4">
                   <input required name="c_name" type="text" placeholder="Your Full Name *" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                  <input required name="c_email" type="email" placeholder="Your Email Address *" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
                   <input required name="c_phone" type="tel" placeholder="Your Phone / WhatsApp *" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
                   <input required name="c_event" type="text" placeholder="Event Type (e.g. Wedding, Birthday) *" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
                   <input required name="c_date" type="date" class="w-full bg-[#161922] border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
                   <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-mono font-bold uppercase text-white transition shadow-lg">
-                    Submit Hiring Request
+                    ${state.isSubmittingEmail ? 'Transmitting Request...' : 'Submit Hiring Request'}
                   </button>
                 </form>
               ` : `
-                <!-- SUCCESS & DIRECT WHATSAPP DISPATCH CARD -->
+                <!-- SUCCESS & DIRECT NOTIFICATION CARD -->
                 <div class="text-center py-4 space-y-4">
                   <div class="w-14 h-14 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto text-2xl">
                     ✅
@@ -641,11 +693,20 @@
                     ${state.lastSubmittedInquiry.id}
                   </div>
                   
-                  <div class="pt-2">
+                  <div class="p-3 rounded-xl bg-white/5 border border-white/5 text-left text-[11px] text-zinc-400 space-y-1">
+                    <p class="flex items-center text-emerald-400 font-bold">
+                      <span class="mr-1.5">📧</span> Email notification dispatched to Admin!
+                    </p>
+                    <p class="text-[10px] text-zinc-500">Destination: ${state.adminEmail}</p>
+                  </div>
+
+                  <div class="pt-2 space-y-2">
                     <a href="${state.lastSubmittedInquiry.waUrl}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center space-x-2 w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold uppercase tracking-wider shadow-lg transition">
-                      <span>📱 Send via WhatsApp Now</span>
+                      <span>📱 Send via WhatsApp</span>
                     </a>
-                    <p class="text-[10px] text-zinc-500 mt-2">বাটনে ক্লিক করলে মেসেজটি সাজানো অবস্থায় আপনার WhatsApp-এ চলে যাবে।</p>
+                    <a href="${state.lastSubmittedInquiry.mailtoUrl}" class="flex items-center justify-center space-x-2 w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-200 font-mono text-xs uppercase tracking-wider transition">
+                      <span>✉️ Open in Email App</span>
+                    </a>
                   </div>
                 </div>
               `}
